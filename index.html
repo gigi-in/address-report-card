@@ -125,6 +125,20 @@
   .card.wide { grid-column:1 / -1; }
   .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:8px 0; }
   .tile { border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+  #cmpBar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 10px; font-size:.86rem; }
+  #cmpBar[hidden] { display:none; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:999px; padding:3px 4px 3px 10px; background:var(--card); max-width:100%; }
+  .chip button { border:0; background:none; cursor:pointer; color:var(--muted); font-size:.95rem; padding:0 6px; }
+  .chip .nm { cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; }
+  .ghost.small { padding:4px 10px; font-size:.8rem; }
+  #cmp .sheet { max-width:960px; }
+  .cmptable { border-collapse:collapse; width:100%; min-width:520px; font-size:.86rem; }
+  .cmptable th, .cmptable td { border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top; }
+  .cmptable th:first-child, .cmptable td:first-child { position:sticky; left:0; background:var(--card); font-weight:600; min-width:120px; }
+  .cmptable td.sub { padding-left:20px; font-weight:500; }
+  .cmptable td.best:not(:first-child) { background:var(--passbg); }
+  .cmptable .vv { display:block; color:var(--muted); font-size:.78rem; margin-top:2px; }
+  .cmptable .ov { font-size:1.05rem; font-weight:700; }
   .t-great { color:var(--great); text-shadow:0 0 0 currentColor; font-weight:800; } .t-good { color:var(--pass); } .t-fair { color:var(--fair); } .t-bad { color:var(--fail); }
   .tile .k { color:var(--muted); font-size:.74rem; line-height:1.25; } .tile .v { font-size:1.15rem; font-weight:700; } .tile .s { color:var(--muted); font-size:.72rem; line-height:1.3; }
   .mixes { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px 18px; margin:8px 0; }
@@ -139,6 +153,22 @@
   .hrow.head { position:sticky; top:0; background:var(--card); color:var(--muted); font-size:.74rem; font-weight:600; }
   .hrow .n { color:var(--muted); } .hrow .num { text-align:right; font-variant-numeric:tabular-nums; }
   @media (max-width:980px) { #clayout { grid-template-columns:minmax(0,1fr); } #cmapwrap { position:static; } #cmap { height:60vh; min-height:340px; } }
+  .printhdr { display:none; }
+  /* While preparing to print, lay the map out offscreen at its printed size so tiles and overlay match the page. */
+  @media screen { .printing #mapwrap { position:fixed; left:-10000px; top:0; width:700px; } .printing #map { width:700px; height:340px; } }
+  @media print {
+    :root { --bg:#fff; --card:#fff; --text:#1c2230; --muted:#667085; --pass:#117a43; --passbg:#e3f6ea; --fail:#b42318; --failbg:#fdeaea; --fair:#8a5a00; --fairbg:#fff1cc; --great:#0d6b3b; --greatfg:#ffffff; --line:#d5d9e0; --accent:#2457d6; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { background:#fff; }
+    .top .actions, .tabs, .search, #limits, #cmpBar, #status, #tabCrime, .mapctl, #mapInfo, #legend, #cmpAdd, #shareBtn, #printBtn, .modal, .tip { display:none !important; }
+    .printhdr { display:block; margin:0 0 8px; font-size:.85rem; color:var(--muted); }
+    #layout { display:block; }
+    #mapwrap { position:static; margin-bottom:10px; break-inside:avoid; }
+    #map { width:700px !important; max-width:100%; height:340px !important; min-height:0 !important; }
+    .card, .overall { break-inside:avoid; }
+    #grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    main { max-width:none; padding:0; }
+  }
 </style>
 </head>
 <body>
@@ -157,6 +187,7 @@
   <nav class="tabs" role="tablist"><button id="tabBtnCheck" type="button" role="tab" aria-selected="true">Address check</button><button id="tabBtnCrime" type="button" role="tab" aria-selected="false">Community explorer</button></nav>
 
   <div id="tabCheck">
+  <div class="printhdr" id="printHdr"></div>
   <div class="search">
     <input id="addr" type="text" placeholder="e.g. 233 S Wacker Dr, Chicago" autocomplete="off">
     <button id="go" type="button">Check</button>
@@ -168,6 +199,7 @@
     <p style="margin-top:8px"><label>Great within <input id="tGreat" type="number" min="0.1" max="0.95" step="0.05" value="0.5">&times; the limit</label> &nbsp; <label>Fair up to <input id="tFair" type="number" min="1" step="0.1" value="1.5">&times; the limit</label></p>
   </div>
 
+  <div id="cmpBar" hidden></div>
   <div id="status"></div>
   <div id="summary"></div>
   <div id="layout">
@@ -210,6 +242,14 @@
       <div id="cStats"><section class="panel" id="cTrend"></section><section class="panel" id="cHoods"></section></div>
     </div>
     <p class="credit" id="cCredit">Reported incidents from the Chicago Police Department via the City of Chicago Data Portal, counted by community area (each incident's Community Area field) and divided by 2024 population estimates for that area. Drugs, fraud and similar categories are left out. Reported crime is not the same as all crime.</p>
+  </div>
+
+  <div class="modal" id="cmp" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Compare addresses">
+      <header><h2>Compare addresses</h2><button class="ghost" id="cmpClose" type="button">Close</button></header>
+      <div style="overflow:auto" id="cmpBody"></div>
+      <p class="limit" style="margin-top:8px">The greener cell in each row is the better result. Measures that could not be checked show a dash.</p>
+    </div>
   </div>
 
   <div class="modal" id="faq" hidden>
@@ -567,15 +607,16 @@ const getWeight = m => {
   return isFinite(n) && n >= 0 ? n : (m.group ? GROUPS[m.group].weight : m.weight);
 };
 // Each measure counts once; a group (crime) is one entry whose points are the share-weighted mean of its parts.
+const SHORT = { transit: 'Train station', library: 'Library', park: 'Park', grocery: 'Grocery', downtown: 'Downtown by train', rec: 'Indoor rec space' };
 function scoreEntries(rows) {
   const out = [], seen = new Set();
   rows.filter(r => !r.res.error && !r.res.info).forEach(r => {
-    if (!r.m.group) { out.push({ w: getWeight(r.m), pts: POINTS[r.res.rating], rating: r.res.rating }); return; }
+    if (!r.m.group) { out.push({ w: getWeight(r.m), pts: POINTS[r.res.rating], rating: r.res.rating, name: SHORT[r.m.id] || r.m.name }); return; }
     if (seen.has(r.m.group)) return;
     seen.add(r.m.group);
     const mem = rows.filter(x => x.m.group === r.m.group && !x.res.error && !x.res.info);
     const sh = mem.reduce((a, x) => a + x.m.share, 0), pts = mem.reduce((a, x) => a + x.m.share * POINTS[x.res.rating], 0) / sh;
-    out.push({ w: getWeight(r.m), pts, rating: levelOf(pts) });
+    out.push({ w: getWeight(r.m), pts, rating: levelOf(pts), name: GROUPS[r.m.group].name });
   });
   return out;
 }
@@ -599,7 +640,10 @@ function render(label, rows, hood, origin) {
   const cls = { great: 'great', good: 'pass', fair: 'fair', bad: 'fail' };
   $('summary').innerHTML =
     `<div class="overall ${cls[overall]}"><strong>Overall: ${word[overall]}${score == null ? '' : ` &middot; ${score}/100`}</strong><span>${count('great')} Great &middot; ${count('good')} Good &middot; ${count('fair')} Fair &middot; ${count('bad')} Bad</span></div>` +
-    `<div class="addr">${origin && origin.ca ? `Community area: <b>${esc(origin.ca)}</b>` : esc(label)}${hood && !hood.near && hood.hood.name !== (origin && origin.ca) ? ` | Neighborhood: <span class="hood">${esc(hood.hood.name)}</span>` : ''}${origin ? ` | <a href="https://www.google.com/maps/search/?api=1&query=${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}" target="_blank" rel="noopener" title="Open this location in Google Maps">${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (Google Maps)</a>` : ''}${skipped ? ` | ${skipped} measure${skipped > 1 ? 's' : ''} could not be checked and ${skipped > 1 ? 'are' : 'is'} left out of the overall` : ''}</div>`;
+    `<div class="addr">${origin && origin.ca ? `Community area: <b>${esc(origin.ca)}</b>` : esc(label)}${hood && !hood.near && hood.hood.name !== (origin && origin.ca) ? ` | Neighborhood: <span class="hood">${esc(hood.hood.name)}</span>` : ''}${origin ? ` | <a href="https://www.google.com/maps/search/?api=1&query=${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}" target="_blank" rel="noopener" title="Open this location in Google Maps">${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (Google Maps)</a>` : ''}${skipped ? ` | ${skipped} measure${skipped > 1 ? 's' : ''} could not be checked and ${skipped > 1 ? 'are' : 'is'} left out of the overall` : ''} <button class="ghost small" id="cmpAdd" type="button">+ Add to compare</button> <button class="ghost small" id="shareBtn" type="button" title="Copy a link to this address">Copy link</button> <button class="ghost small" id="printBtn" type="button" title="Print or save as PDF">Print / PDF</button></div>`;
+  $('printHdr').textContent = `Chicago Address Report Card \u00b7 ${label} \u00b7 ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+  LAST = snapshot(label, rows, hood, origin, overall, score);
+  cmpRefresh();
   const limitText = (m, lim) => m.info ? '' : `\nGreat \u2264 ${Math.floor(lim * (m.gf || greatFactor()) + 1e-9)} \u00b7 Good \u2264 ${lim} \u00b7 Fair \u2264 ${Math.floor(lim * (m.ff || fairFactor()) + 1e-9)} ${m.unit}\n${m.group ? `Crime counts as one measure (weight ${getWeight(m)}); this part makes up ${Math.round(m.share / METRICS.filter(x => x.group === m.group).reduce((a, x) => a + x.share, 0) * 100)}% of it` : `Weight ${getWeight(m)} in the overall score`}`;
   const helpOf = (m, lim) => (m.help || '') + limitText(m, lim);
   const barsHtml = res => res.bars ? `<div class="bars">${res.bars.map(b => `<div class="bar"><span>${esc(b.label)}</span><div class="track"><div class="fill" style="width:${b.pct}%"></div><i class="mark" style="left:${b.city}%"></i></div><span>${b.pct}%</span></div>`).join('')}</div><p class="limit">Tick = citywide share</p>` : '';
@@ -851,7 +895,7 @@ const MapView = (() => {
         st.ctx[k] = DATA[k].filter(e => e !== b.el && haversine(origin, e.pts[0]) <= rad).map(e => ({ name: e.tags.name, lat: e.pts[0].lat, lon: e.pts[0].lon }));
       }
     });
-    fit(pts); st.home = { lat: st.lat, lon: st.lon, z: st.z }; draw();
+    st.fitPts = pts; fit(pts); st.home = { lat: st.lat, lon: st.lon, z: st.z }; draw();
     if (window.matchMedia && matchMedia('(max-width:980px)').matches) { try { $('mapwrap').scrollIntoView({ block: 'nearest' }); } catch (e) {} }
   }
 
@@ -916,7 +960,7 @@ const MapView = (() => {
     if ($('cTileSel')) $('cTileSel').value = k;
     if (typeof CrimeX !== 'undefined') CrimeX.refreshTiles();
   }
-  return { show, init, proj, unproj, state: st, TILE_SRC, setSrc, redraw };
+  return { show, init, proj, unproj, state: st, TILE_SRC, setSrc, redraw, drawNow: () => { if (st.fitPts) fit(st.fitPts); draw(); }, restore: () => { if (st.home) { st.lat = st.home.lat; st.lon = st.home.lon; st.z = st.home.z; } redraw(); } };
 })();
 
 // ---------- Community demographics (CMAP Community Data Snapshots, 2020-2024 ACS) ----------
@@ -1228,17 +1272,140 @@ function setTab(name) {
   const crime = name === 'crime';
   $('tabCheck').hidden = crime; $('tabCrime').hidden = !crime;
   $('tabBtnCheck').setAttribute('aria-selected', String(!crime)); $('tabBtnCrime').setAttribute('aria-selected', String(crime));
-  try { history.replaceState(null, '', crime ? '#community' : location.pathname + location.search); } catch (e) {}
+  try { history.replaceState(null, '', crime ? '#community' : location.pathname + location.search + ADDR_HASH); } catch (e) {}
   if (crime) CrimeX.show(); else MapView.redraw();
 }
 
-async function run() {
-  const q = $('addr').value.trim();
+
+// ---------- Compare up to three addresses ----------
+let LAST = null, CMP = [];
+try { CMP = JSON.parse(localStorage.getItem('rc_compare') || '[]').slice(0, 3); } catch (e) { CMP = []; }
+const cmpSave = () => { try { localStorage.setItem('rc_compare', JSON.stringify(CMP)); } catch (e) {} };
+const shortAddr = l => String(l).split(',').slice(0, 2).join(',').trim();
+function snapshot(label, rows, hood, origin, overall, score) {
+  const items = [], seen = new Set();
+  const val = (m, res) => {
+    if (res.error) return { v: '', key: null };
+    if (res.best) return { v: Math.round(res.best.min) + ' min' + (res.best.name ? ' · ' + String(res.best.name).slice(0, 40) : ''), key: res.best.min };
+    let x = /(\d+) min total/.exec(res.text || ''); if (x) return { v: x[1] + ' min total', key: +x[1] };
+    x = /(\d+)(st|nd|rd|th) percentile/.exec(res.text || ''); if (x) return { v: x[1] + x[2] + ' percentile', key: +x[1] };
+    return { v: String(res.text || '').slice(0, 40), key: null };
+  };
+  rows.forEach(({ m, res }) => {
+    if (m.info) return;
+    if (m.group) {
+      if (!seen.has(m.group)) {
+        seen.add(m.group);
+        const mem = rows.filter(r => r.m.group === m.group && !r.res.error && !r.res.info);
+        if (mem.length) { const sc = scoreEntries(mem)[0]; items.push({ id: 'g:' + m.group, name: GROUPS[m.group].name, rating: sc.rating, v: '', key: 100 - sc.pts }); }
+      }
+      const { v, key } = val(m, res);
+      items.push({ id: m.id, name: m.sub, sub: true, rating: res.error ? null : res.rating, v, key });
+      return;
+    }
+    const { v, key } = val(m, res);
+    items.push({ id: m.id, name: SHORT[m.id] || m.name, rating: res.error ? null : res.rating, v, key });
+  });
+  const info = [];
+  if (origin.ca) info.push(['Community area', origin.ca]);
+  try {
+    const row = communityRow(origin.lat, origin.lon);
+    if (row && DEMOG.rows[row[0]]) { const i = DEMO_IDX.inc; info.push(['Median household income', demoFmt(i, DEMOG.rows[row[0]][i])]); }
+  } catch (e) {}
+  try {
+    const pr = findPrecinct(origin.lat, origin.lon);
+    if (pr) { const [tv, h, t] = pr[2]; info.push(['2024 vote (precinct)', 'Harris ' + Math.round(h / tv * 100) + '% · Trump ' + Math.round(t / tv * 100) + '%']); }
+  } catch (e) {}
+  return { label, short: origin.ca ? origin.ca + ' · ' + shortAddr(label) : shortAddr(label), lat: +origin.lat.toFixed(5), lon: +origin.lon.toFixed(5), overall, score, items, info };
+}
+function cmpRefresh() {
+  const bar = $('cmpBar'), add = $('cmpAdd');
+  if (add) {
+    const has = LAST && CMP.some(c => c.lat === LAST.lat && c.lon === LAST.lon);
+    add.disabled = !LAST || has || CMP.length >= 3;
+    add.textContent = has ? '✓ In comparison' : CMP.length >= 3 ? 'Comparison full (3)' : '+ Add to compare';
+  }
+  bar.hidden = !CMP.length;
+  bar.innerHTML = CMP.length ? '<b>Compare:</b> ' + CMP.map((c, i) => `<span class="chip"><span class="nm" data-i="${i}" title="Check this address again">${esc(c.short)}</span><button type="button" data-rm="${i}" aria-label="Remove">&times;</button></span>`).join('') +
+    `<button class="ghost small" id="cmpOpen" type="button"${CMP.length < 2 ? ' disabled title="Add at least two addresses"' : ''}>Compare${CMP.length < 2 ? ' (add one more)' : ''}</button><button class="ghost small" id="cmpClear" type="button">Clear</button>` : '';
+}
+function cmpTable() {
+  const word = { great: 'Great', good: 'Good', fair: 'Fair', bad: 'Bad' }, cls = { great: 'great', good: 'pass', fair: 'fair', bad: 'fail' };
+  const head = '<tr><th></th>' + CMP.map(c => `<th>${esc(c.short)}</th>`).join('') + '</tr>';
+  const ov = '<tr><td>Overall</td>' + CMP.map((c, i) => { const best = CMP.every(o => o.score == null || c.score >= o.score) && CMP.some(o => o !== c && o.score != null && o.score < c.score); return `<td class="${best ? 'best' : ''}"><span class="badge small ${cls[c.overall]}">${word[c.overall]}</span> <span class="ov">${c.score == null ? '' : c.score + '/100'}</span></td>`; }).join('') + '</tr>';
+  const order = []; CMP.forEach(c => c.items.forEach(it => { if (!order.some(o => o.id === it.id)) order.push({ id: it.id, name: it.name, sub: it.sub }); }));
+  const body = order.map(o => {
+    const cells = CMP.map(c => c.items.find(it => it.id === o.id));
+    const keys = cells.map(x => x && x.rating ? (x.key != null ? x.key : 100 - POINTS[x.rating]) : null);
+    const valid = keys.filter(k => k != null), min = Math.min(...valid), varies = valid.length > 1 && valid.some(k => k !== min);
+    return `<tr><td class="${o.sub ? 'sub' : ''}">${esc(o.name)}</td>` + cells.map((x, i) => !x || !x.rating ? '<td>&ndash;</td>' : `<td class="${varies && keys[i] === min ? 'best' : ''}"><span class="badge small ${cls[x.rating]}">${word[x.rating]}</span>${x.v ? `<span class="vv">${esc(x.v)}</span>` : ''}</td>`).join('') + '</tr>';
+  }).join('');
+  const labels = []; CMP.forEach(c => c.info.forEach(([k]) => { if (!labels.includes(k)) labels.push(k); }));
+  const info = labels.map(k => `<tr><td>${esc(k)}</td>` + CMP.map(c => { const f = c.info.find(x => x[0] === k); return `<td>${f ? esc(f[1]) : '&ndash;'}</td>`; }).join('') + '</tr>').join('');
+  return `<table class="cmptable">${head}${ov}${body}${info}</table>`;
+}
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.id === 'cmpAdd' && LAST && CMP.length < 3 && !CMP.some(c => c.lat === LAST.lat && c.lon === LAST.lon)) { CMP.push(LAST); cmpSave(); cmpRefresh(); }
+  else if (t.dataset && t.dataset.rm != null) { CMP.splice(+t.dataset.rm, 1); cmpSave(); cmpRefresh(); }
+  else if (t.classList && t.classList.contains('nm') && t.dataset.i != null) { const c = CMP[+t.dataset.i]; run({ lat: c.lat, lon: c.lon, label: c.label }); }
+  else if (t.id === 'cmpClear') { CMP = []; cmpSave(); cmpRefresh(); }
+  else if (t.id === 'cmpOpen' && CMP.length >= 2) { $('cmpBody').innerHTML = cmpTable(); $('cmp').hidden = false; }
+  else if (t.id === 'cmpClose' || t.id === 'cmp') $('cmp').hidden = true;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('cmp').hidden = true; });
+cmpRefresh();
+
+
+// ---------- Shareable link and print ----------
+let ADDR_HASH = '';
+function setAddrHash(o) {
+  ADDR_HASH = '#ll=' + o.lat.toFixed(5) + ',' + o.lon.toFixed(5) + '&q=' + encodeURIComponent(o.label);
+  try { history.replaceState(null, '', location.pathname + location.search + ADDR_HASH); } catch (e) { /* some preview panes block this */ }
+}
+function loadFromHash() {
+  const h = location.hash;
+  if (h === ADDR_HASH) return;
+  const m = /^#ll=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:&q=(.*))?$/.exec(h);
+  if (!m) return;
+  const lat = +m[1], lon = +m[2];
+  if (!(lat > 41.5 && lat < 42.1 && lon > -88.1 && lon < -87.4)) return;   // Chicago area only
+  let label = ''; try { label = decodeURIComponent(m[3] || ''); } catch (e) {}
+  setTab('check');
+  run({ lat, lon, label: label || lat.toFixed(5) + ', ' + lon.toFixed(5) });
+}
+const tilesReady = () => new Promise(res => {
+  const imgs = [...document.querySelectorAll('#mapTiles img')].filter(i => !i.complete);
+  if (!imgs.length) return res();
+  let n = imgs.length; const one = () => { if (--n <= 0) res(); };
+  imgs.forEach(i => { i.addEventListener('load', one, { once: true }); i.addEventListener('error', one, { once: true }); });
+  setTimeout(res, 3500);
+});
+async function preparePrint() {
+  document.documentElement.classList.add('printing');
+  try { MapView.drawNow(); await tilesReady(); } catch (e) { /* print anyway */ }
+}
+window.addEventListener('beforeprint', () => { if (!document.documentElement.classList.contains('printing')) { document.documentElement.classList.add('printing'); try { MapView.drawNow(); } catch (e) {} } });
+window.addEventListener('afterprint', () => { document.documentElement.classList.remove('printing'); try { MapView.restore(); } catch (e) {} });
+document.addEventListener('click', async e => {
+  if (e.target.id === 'printBtn') { await preparePrint(); window.print(); }
+  if (e.target.id === 'shareBtn') {
+    const btn = e.target, url = location.href.split('#')[0] + ADDR_HASH, done = ok => { btn.textContent = ok ? 'Link copied' : 'Copy failed'; setTimeout(() => { btn.textContent = 'Copy link'; }, 1800); };
+    const fallback = () => { const t = document.createElement('textarea'); t.value = url; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (x) {} t.remove(); done(ok); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(() => done(true), fallback); else fallback();
+  }
+});
+window.addEventListener('hashchange', loadFromHash);
+
+async function run(pre) {
+  if (pre && pre.lat == null) pre = null;   // a click event, not a saved location
+  const q = pre ? pre.label : $('addr').value.trim();
   if (!q) { $('status').textContent = 'Please enter an address.'; return; }
   const btn = $('go'); btn.disabled = true; $('summary').innerHTML = ''; $('grid').innerHTML = '';
   try {
     $('status').textContent = 'Locating address...';
-    const origin = await geocode(q);
+    const origin = pre || await geocode(q);
+    if (pre) $('addr').value = pre.label;
     $('status').textContent = 'Calculating...';
     const res = {};
     const safe = async (m, fn) => { try { return await fn(); } catch (e) { return { error: true, text: 'Could not calculate this measure.' }; } };
@@ -1249,6 +1416,7 @@ async function run() {
     $('status').textContent = '';
     const hood = findHood(origin.lat, origin.lon);
     origin.ca = findCommunity(origin.lat, origin.lon);
+    setAddrHash(origin);
     render(origin.label, METRICS.map(m => ({ m, lim: getLimit(m), res: res[m.id] })), hood, origin);
     try { MapView.show(origin, res, hood); } catch (e) { /* the map is a bonus; the ratings above still stand */ }
   } catch (err) {
@@ -1263,7 +1431,8 @@ async function run() {
 
 try { MapView.init(); } catch (e) { /* map is optional */ }
 try { CrimeX.init(); if (location.hash === '#crime' || location.hash === '#community') setTab('crime'); } catch (e) { /* crime explorer is optional */ }
-$('go').addEventListener('click', run);
+loadFromHash();
+$('go').addEventListener('click', () => run());
 $('addr').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
 $('limitsBtn').addEventListener('click', () => {
   const hide = !$('limits').hidden; $('limits').hidden = hide; $('limitsBtn').setAttribute('aria-expanded', String(!hide));

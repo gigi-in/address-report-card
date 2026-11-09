@@ -33,8 +33,20 @@
   .overall.pass { background:var(--passbg); color:var(--pass); }
   .overall.fail { background:var(--failbg); color:var(--fail); }
   .overall.fair { background:var(--fairbg); color:var(--fair); }
-  .addr { color:var(--muted); font-size:.85rem; margin:6px 2px 10px; }
-  #grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:10px; }
+  .banner { display:flex; align-items:center; gap:14px 22px; flex-wrap:wrap; padding:14px 18px; background:var(--card); border:1px solid var(--line); border-radius:12px; margin-top:4px; }
+  .bscore { display:flex; align-items:center; gap:12px; }
+  .ring { width:68px; height:68px; border-radius:50%; border:7px solid var(--line); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.15rem; flex:none; }
+  .ring.great { border-color:var(--great); } .ring.pass { border-color:var(--pass); } .ring.fair { border-color:#e0a100; } .ring.fail { border-color:var(--fail); }
+  .bscore small { display:block; color:var(--muted); font-size:.78rem; } .bscore b { font-size:1.35rem; }
+  .bscore b.great { color:var(--great); } .bscore b.pass { color:var(--pass); } .bscore b.fair { color:var(--fair); } .bscore b.fail { color:var(--fail); }
+  .bpills { display:flex; gap:6px; flex-wrap:wrap; } .bpills .badge { padding:3px 10px; border-radius:999px; min-width:0; }
+  .addr { color:var(--muted); font-size:.85rem; flex:1 1 260px; margin:0; }
+  .acts { display:flex; gap:6px; flex-wrap:wrap; }
+  .sec { font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:16px 2px 6px; }
+  .sec:first-child { margin-top:4px; }
+  .cgrid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; } .cgrid.one { grid-template-columns:minmax(0,1fr); }
+  @media (max-width:700px) { .cgrid { grid-template-columns:minmax(0,1fr); } main { padding-bottom:84px; } .acts { position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--card); border-top:1px solid var(--line); padding:10px 16px; flex-wrap:nowrap; } .acts .ghost { flex:1; min-height:44px; } }
+  #grid { display:block; }
   .empty { color:var(--muted); font-size:.9rem; margin:18px 2px; }
   .card { position:relative; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
   .cardhead { display:flex; align-items:center; gap:8px; }
@@ -169,8 +181,8 @@
     #layout { display:block; }
     #mapwrap { position:static; margin-bottom:10px; break-inside:avoid; }
     #map { width:700px !important; max-width:100%; height:340px !important; min-height:0 !important; }
-    .card, .overall { break-inside:avoid; }
-    #grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .card, .banner { break-inside:avoid; }
+    .acts { display:none !important; }
     main { max-width:none; padding:0; }
   }
 </style>
@@ -410,7 +422,7 @@ function rideFromDowntown(station, threshold) {
   const ride = km < 0.5 ? 3 : km * RAIL_CIRCUITY / (metra ? METRA_KMH : L_KMH) * 60;
   const total = walk + ride;
   return {
-    rating: rate(total, threshold, 'downtown'),
+    rating: rate(total, threshold, 'downtown'), mins: total,
     text: `About ${Math.round(total)} min total: ${Math.round(walk)} min walk to ${sname}${station.est ? ' (estimated)' : ''} + about ${Math.round(ride)} min ${km < 0.5 ? 'in the Loop' : 'by ' + (metra ? 'Metra' : 'the L')} to the Loop (rough estimate from distance, not a schedule; excludes waiting and transfers).`
   };
 }
@@ -423,7 +435,7 @@ async function evaluate(origin, els, threshold, id) {
   timed.sort((a, b) => a.min - b.min);
   const best = timed[0];
   return {
-    rating: rate(best.min, threshold, id),
+    rating: rate(best.min, threshold, id), mins: best.min,
     text: `${best.name}${best.tags && best.tags.extra ? ' (' + best.tags.extra + ')' : ''}: about ${Math.round(best.min)} min walk${best.est ? ' (estimated)' : ''}`,
     est: best.est,
     best: { ...best }
@@ -603,8 +615,10 @@ function render(label, rows, hood, origin) {
   const word = { great: 'GREAT', good: 'GOOD', fair: 'FAIR', bad: 'BAD' };
   const cls = { great: 'great', good: 'pass', fair: 'fair', bad: 'fail' };
   $('summary').innerHTML =
-    `<div class="overall ${cls[overall]}"><strong>Overall: ${word[overall]}${score == null ? '' : ` &middot; ${score}/100`}</strong><span>${count('great')} Great &middot; ${count('good')} Good &middot; ${count('fair')} Fair &middot; ${count('bad')} Bad</span></div>` +
-    `<div class="addr">${origin && origin.ca ? `Community area: <b>${esc(origin.ca)}</b>` : esc(label)}${hood && !hood.near && hood.hood.name !== (origin && origin.ca) ? ` | Neighborhood: <span class="hood">${esc(hood.hood.name)}</span>` : ''}${origin ? ` | <a href="https://www.google.com/maps/search/?api=1&query=${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}" target="_blank" rel="noopener" title="Open this location in Google Maps">${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (Google Maps)</a>` : ''}${skipped ? ` | ${skipped} measure${skipped > 1 ? 's' : ''} could not be checked and ${skipped > 1 ? 'are' : 'is'} left out of the overall` : ''} <button class="ghost small" id="cmpAdd" type="button">+ Add to compare</button> <button class="ghost small" id="shareBtn" type="button" title="Copy a link to this address">Copy link</button> <button class="ghost small" id="printBtn" type="button" title="Print or save as PDF">Print / PDF</button></div>`;
+    `<div class="banner"><div class="bscore"><div class="ring ${cls[overall]}">${score == null ? '' : score}</div><div><small>Overall</small><b class="${cls[overall]}">${word[overall]}</b></div></div>` +
+    `<div class="bpills"><span class="badge great">${count('great')} Great</span><span class="badge pass">${count('good')} Good</span><span class="badge fair">${count('fair')} Fair</span><span class="badge fail">${count('bad')} Bad</span></div>` +
+    `<div class="addr">${origin && origin.ca ? `Community area: <b>${esc(origin.ca)}</b>` : esc(label)}${hood && !hood.near && hood.hood.name !== (origin && origin.ca) ? ` | Neighborhood: <span class="hood">${esc(hood.hood.name)}</span>` : ''}${origin ? ` | <a href="https://www.google.com/maps/search/?api=1&query=${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}" target="_blank" rel="noopener" title="Open this location in Google Maps">${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (Google Maps)</a>` : ''}${skipped ? ` | ${skipped} measure${skipped > 1 ? 's' : ''} could not be checked and ${skipped > 1 ? 'are' : 'is'} left out of the overall` : ''}</div>` +
+    `<div class="acts"><button class="ghost small" id="cmpAdd" type="button">+ Add to compare</button> <button class="ghost small" id="shareBtn" type="button" title="Copy a link to this address">Copy link</button> <button class="ghost small" id="printBtn" type="button" title="Print or save as PDF">Print / PDF</button></div></div>`;
   $('printHdr').textContent = `Chicago Address Report Card \u00b7 ${label} \u00b7 ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
   LAST = snapshot(label, rows, hood, origin, overall, score);
   cmpRefresh();
@@ -612,13 +626,15 @@ function render(label, rows, hood, origin) {
   const helpOf = (m, lim) => (m.help || '') + limitText(m, lim);
   const barsHtml = res => res.bars ? `<div class="bars">${res.bars.map(b => `<div class="bar"><span>${esc(b.label)}</span><div class="track"><div class="fill" style="width:${b.pct}%"></div><i class="mark" style="left:${b.city}%"></i></div><span>${b.pct}%</span></div>`).join('')}</div><p class="limit">Tick = citywide share</p>` : '';
   const done = new Set();
-  $('grid').innerHTML = rows.map(({ m, lim, res }) => {
+  const sect = { needs: [], safety: [], comm: [] };
+  rows.forEach(({ m, lim, res }) => {
+    const bucket = m.group ? 'safety' : (m.info ? 'comm' : 'needs');
     if (m.group) {
-      if (done.has(m.group)) return '';
+      if (done.has(m.group)) return;
       done.add(m.group);
       const members = rows.filter(r => r.m.group === m.group), g = GROUPS[m.group];
       const ok = members.some(r => !r.res.error && !r.res.info), lvl = ok ? levelOf(scoreEntries(members)[0].pts) : null;
-      return `<div class="card group">
+      sect.safety.push(`<div class="card group">
       <div class="cardhead"><span class="badge ${ok ? cls[lvl] : 'info'}">${ok ? word[lvl] : 'INFO'}</span>
         <h3>${esc(g.name)}</h3><span class="tip" tabindex="0" aria-label="${esc(g.help)}" data-tip="${esc(g.help)}">?</span></div>
       <div class="subs">${members.map(({ m: mm, lim: ll, res: rr }) => {
@@ -626,16 +642,20 @@ function render(label, rows, hood, origin) {
         return `<div class="subitem"><div class="subhead"><span class="badge small ${b ? 'info' : cls[rr.rating]}">${b ? 'INFO' : word[rr.rating]}</span><h4>${esc(mm.sub)}</h4><span class="tip" tabindex="0" aria-label="${esc(helpOf(mm, ll))}" data-tip="${esc(helpOf(mm, ll))}">?</span></div>
           <p class="detail">${esc(rr.text)}</p>${barsHtml(rr)}</div>`;
       }).join('')}</div>
-    </div>`;
+    </div>`);
+      return;
     }
     const bad = !!res.error || !!res.info;
-    return `<div class="card${res.html ? ' wide' : ''}">
+    sect[bucket].push(`<div class="card${res.html ? ' wide' : ''}">
       <div class="cardhead"><span class="badge ${bad ? 'info' : cls[res.rating]}">${bad ? 'INFO' : word[res.rating]}</span>
         <h3>${esc(res.title || m.name)}</h3><span class="tip" tabindex="0" aria-label="${esc(helpOf(m, lim))}" data-tip="${esc(helpOf(m, lim))}">?</span></div>
       ${res.html ? res.html : `<p class="detail">${esc(res.text)}</p>`}
       ${barsHtml(res)}
-    </div>`;
-  }).join('');
+    </div>`);
+  });
+  let n = 0;
+  const secHtml = (title, arr, one) => arr.length ? `<div class="sec">${++n} \u00b7 ${title}</div><div class="cgrid${one ? ' one' : ''}">${arr.join('')}</div>` : '';
+  $('grid').innerHTML = secHtml('Daily needs (walk time)', sect.needs) + secHtml('Safety', sect.safety, true) + secHtml('Community', sect.comm, true);
 }
 
 // ---------- Neighborhood lookup ----------

@@ -212,6 +212,7 @@
   <div id="limits" hidden>
     <p>Each measure is rated from its Good limit. Walking and train measures have their own Great and Fair cutoffs, which scale if you change the Good limit; the two boxes below apply to the percentile (crime) measures. The overall rating is a weighted average, so a measure with a higher weight counts for more.</p>
     <div id="limitFields"></div>
+    <p style="margin-top:8px"><b>Crime severity</b> (how much each incident counts): <label>violent <input id="sev_v" type="number" min="0" step="0.5" value="3"></label> <label>property <input id="sev_p" type="number" min="0" step="0.5" value="1"></label> <label>other <input id="sev_o" type="number" min="0" step="0.5" value="0.5"></label> <span class="limit">Change, then press Check again.</span></p>
     <p style="margin-top:8px"><label>Great within <input id="tGreat" type="number" min="0.1" max="0.95" step="0.05" value="0.5">&times; the limit</label> &nbsp; <label>Fair up to <input id="tFair" type="number" min="1" step="0.1" value="1.5">&times; the limit</label></p>
   </div>
 
@@ -297,6 +298,8 @@
       <p>Reported incidents in three groups (violent, property and other) in the latest full calendar year are totaled for the census block group the address is in (a block group has roughly 600 to 3,000 residents) and divided by its 2020 Census population. That gives incidents per 1,000 residents, ranked against every other Chicago block group, counting each resident once. A lower percentile is better. The rating uses the percentile (Great at 25 or below, Good at 50 or below, Fair at 75 or below, with the default settings). Violent covers homicide, sexual assault, robbery, battery, assault and kidnapping. Property covers theft, burglary, vehicle theft, criminal damage and arson. Other covers weapons violations, trespass, stalking, intimidation and similar. Drug, vice and fraud reports are left out because they reflect enforcement or are not tied to where a person lives. Only the address's own block group is used, with no neighbors added, so a block group that holds a busy shopping street or a park can show a high rate per resident and a small block group can swing from year to year. Population is from the 2020 Census, so places that have changed since then can be off. Incident locations are rounded to the block for privacy, and reports reflect what is reported as well as what happens. It describes an area, not your personal risk.</p>
       <h3>What about the surrounding block groups?</h3>
       <p>The second view in the Crime card adds up the block groups that share an edge with yours (usually four to seven) and works out incidents per 1,000 residents across all of them, then ranks that against the same combined neighbors around every other Chicago block group. Neighbors with no residents, such as parks, are left out, and neighbors outside Chicago are not in the data.</p>
+      <h3>How does severity weighting work?</h3>
+      <p>In the three address crime views, incidents are not all equal. Each violent incident counts 3 times, each property incident once and each other incident half (changeable in Limits, then press Check again). The weighted count is divided by residents, and that weighted rate is what gets ranked into a percentile, so an area with mostly violent incidents rates worse than one with the same total made up mostly of thefts. The text on each card still shows the plain incidents per 1,000 residents and the violent, property and other counts. The weighting uses the latest full year only, because earlier years have no violent/property split by block group, so the trend line uses plain counts. The Community explorer map shows plain, unweighted rates.</p>
       <h3>What is crime per resident?</h3>
       <p>The third crime measure looks up which of Chicago's 77 community areas the address is in and divides that area's reported incidents in the latest full year by its population (2024 estimate). The rate per 1,000 residents is ranked against all 77 community areas, with the same percentile ratings as the other two crime views. Community areas are large and can contain both safer and rougher blocks, so read it together with the half-mile views. Areas with few residents but many visitors, such as the Loop, show a high rate per resident.</p>
       <h3>How is the crime trend calculated?</h3>
@@ -471,6 +474,29 @@ const rateToPct = rt => Math.min(100, 1 + BGROUPS.cuts.filter(c => c < rt).lengt
 const ordinal = n => { const t = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (t[(v - 20) % 10] || t[v] || t[0]); };
 const pctChange = (from, to) => Math.round((to - from) / from * 100);
 const signed = ch => (ch >= 0 ? 'up ' : 'down ') + Math.abs(ch) + '%';
+// Severity weighting: violent / property / other incidents count differently in the three address crime views (not in the explorer map).
+const SEV_DEF = { v: 3, p: 1, o: 0.5 };
+const sevNow = () => { const g = (id, d) => { const el = $(id), x = el ? parseFloat(el.value) : NaN; return isFinite(x) && x >= 0 ? x : d; }; const w = { v: g('sev_v', SEV_DEF.v), p: g('sev_p', SEV_DEF.p), o: g('sev_o', SEV_DEF.o) }; return w.v + w.p + w.o > 0 ? w : { ...SEV_DEF }; };
+const sevOf = (v, p, o, w) => w.v * v + w.p * p + w.o * o;
+const SEV_CACHE = {};
+function sevCuts(w) {
+  const key = w.v + '|' + w.p + '|' + w.o;
+  if (SEV_CACHE[key]) return SEV_CACHE[key];
+  const cutsOf = items => {
+    items.sort((a, b) => a[0] - b[0]);
+    const tot = items.reduce((q, x) => q + x[1], 0), cuts = []; let cum = 0, k = 1;
+    for (const [rt, wt] of items) { cum += wt; while (k <= 99 && cum >= tot * k / 100) { cuts.push(rt); k++; } }
+    while (cuts.length < 99) cuts.push(items[items.length - 1][0]);
+    return cuts;
+  };
+  const live = BG.list.filter(g => g.pop > 0);
+  const own = live.map(g => [sevOf(g.v, g.p, g.o, w) / g.pop * 1000, g.pop]);
+  const nb = [];
+  live.forEach(g => { const ns = g.nb.map(i => BG.list[i]), pop = ns.reduce((q, x) => q + x.pop, 0); if (pop >= 50) nb.push([ns.reduce((q, x) => q + sevOf(x.v, x.p, x.o, w), 0) / pop * 1000, g.pop]); });
+  return (SEV_CACHE[key] = { own: cutsOf(own), nb: cutsOf(nb) });
+}
+const sevCity = w => { let v = 0, p = 0, o = 0; BG.list.forEach(g => { v += g.v; p += g.p; o += g.o; }); return sevOf(v, p, o, w) / BGROUPS.pop * 1000; };
+const sevNote = w => `Counting violent incidents ${w.v}\u00d7, property ${w.p}\u00d7 and other ${w.o}\u00d7`;
 const cityRate = () => BGROUPS.city[CRIME_STATE.ny - 1] / BGROUPS.pop * 1000;
 
 function trendText(yearTotals) {
@@ -488,16 +514,16 @@ function crimeNbCheck(origin, limit) {
   const ns = g.nb.map(i => BG.list[i]), pop = ns.reduce((q, x) => q + x.pop, 0);
   if (!ns.length || pop < 50) return { error: true, text: 'No neighboring block groups with residents.' };
   const year = [0, 1, 2].map(y => ns.reduce((q, x) => q + x.year[y], 0)), v = ns.reduce((q, x) => q + x.v, 0), pr = ns.reduce((q, x) => q + x.p, 0), o = Math.max(0, year[last] - v - pr);
-  const rt = year[last] / pop * 1000, pct = Math.min(100, 1 + BGROUPS.cutsNb.filter(c => c < rt).length);
-  return { rating: rate(pct, limit), text: `${rt.toFixed(1)} reported incidents per 1,000 residents across the ${ns.length} block groups that border yours in ${CRIME_YEARS[last]} (${fmtN(pop)} residents: ${v} violent, ${pr} property and ${o} other incidents). ${ordinal(pct)} percentile of Chicago residents, lower is better.${trendText(year)}` };
+  const w = sevNow(), rt = year[last] / pop * 1000, wr = ns.reduce((q, x) => q + sevOf(x.v, x.p, x.o, w), 0) / pop * 1000, pct = Math.min(100, 1 + sevCuts(w).nb.filter(c => c < wr).length);
+  return { rating: rate(pct, limit), text: `${rt.toFixed(1)} reported incidents per 1,000 residents across the ${ns.length} block groups that border yours in ${CRIME_YEARS[last]} (${fmtN(pop)} residents: ${v} violent, ${pr} property and ${o} other incidents). ${sevNote(w)}, the weighted rate is ${wr.toFixed(1)} per 1,000, ${ordinal(pct)} percentile of Chicago residents, lower is better.${trendText(year)}` };
 }
 
 function crimeCheck(origin, limit) {
   const g = findBG(origin.lat, origin.lon), last = CRIME_STATE.ny - 1;
   if (!g) return { error: true, text: 'This address is not in a block group with residents (a park, industrial area or similar), so there is no rate per resident.' };
-  const rt = g.year[last] / g.pop * 1000, pct = rateToPct(rt);
+  const w = sevNow(), rt = g.year[last] / g.pop * 1000, wr = sevOf(g.v, g.p, g.o, w) / g.pop * 1000, cuts = sevCuts(w).own, pct = Math.min(100, 1 + cuts.filter(c => c < wr).length);
   const small = g.pop < 500 ? ` Only ${fmtN(g.pop)} residents live here, so this rate swings a lot.` : '';
-  return { rating: rate(pct, limit), text: `${rt.toFixed(1)} reported incidents per 1,000 residents in your block group in ${CRIME_YEARS[last]} (citywide ${cityRate().toFixed(1)}; ${fmtN(g.pop)} residents: ${g.v} violent, ${g.p} property and ${g.o} other incidents). ${ordinal(pct)} percentile of Chicago residents, lower is better.${trendText(g.year)}${small}` };
+  return { rating: rate(pct, limit), text: `${rt.toFixed(1)} reported incidents per 1,000 residents in your block group in ${CRIME_YEARS[last]} (citywide ${cityRate().toFixed(1)}; ${fmtN(g.pop)} residents: ${g.v} violent, ${g.p} property and ${g.o} other incidents). ${sevNote(w)}, the weighted rate is ${wr.toFixed(1)} per 1,000 (citywide ${sevCity(w).toFixed(1)}), ${ordinal(pct)} percentile of Chicago residents, lower is better.${trendText(g.year)}${small}` };
 }
 
 const CA_VISITOR_AREAS = ['Loop', 'Near North Side', 'Near West Side', 'Near South Side', "O'Hare"];
@@ -513,15 +539,17 @@ function crimeCommunityCheck(origin, limit) {
   const ca = communityRow(origin.lat, origin.lon);
   if (!ca) return { error: true, text: 'This location is outside the community area boundaries.' };
   const [, name, pop, , ...cats] = ca, L = CRIME_YEARS.length - 1;
+  const w = sevNow(), wk = [w.v, w.p, w.o];
   const rateOf = e => e.slice(4).reduce((q, c) => q + c[L], 0) / e[2] * 1000;
-  const mine = rateOf(ca), all = COMMUNITY.map(rateOf);
+  const wRateOf = e => e.slice(4).reduce((q, c, k) => q + wk[k] * c[L], 0) / e[2] * 1000;
+  const mine = rateOf(ca), wmine = wRateOf(ca), all = COMMUNITY.map(wRateOf);
   const city = COMMUNITY.reduce((q, e) => q + e.slice(4).reduce((z, c) => z + c[L], 0), 0) / COMMUNITY.reduce((q, e) => q + e[2], 0) * 1000;
-  const pct = 100 * all.filter(r => r <= mine).length / all.length;
+  const pct = 100 * all.filter(r => r <= wmine).length / all.length;
   const per = k => (cats[k][L] / pop * 1000).toFixed(1);
   const first = cats.reduce((q, c) => q + c[0], 0), now = cats.reduce((q, c) => q + c[L], 0);
   const trend = first >= 20 ? ` Trend: ${signed(pctChange(first, now))} since ${CRIME_YEARS[0]} (${fmtN(first)} to ${fmtN(now)} incidents).` : '';
   const note = pop < 10000 ? ' Small population, so this rate swings a lot.' : CA_VISITOR_AREAS.includes(name) ? ' Many visitors and workers relative to residents, so the rate per resident runs high.' : '';
-  return { rating: rate(pct, limit), text: `${name}: ${mine.toFixed(1)} reported incidents per 1,000 residents in ${CRIME_YEARS[L]} (citywide ${city.toFixed(1)}), ${ordinal(Math.max(1, Math.round(pct)))} percentile of Chicago's 77 community areas, lower is better. Per 1,000: violent ${per(0)}, property ${per(1)}, other ${per(2)}.${trend}${note}` };
+  return { rating: rate(pct, limit), text: `${name}: ${mine.toFixed(1)} reported incidents per 1,000 residents in ${CRIME_YEARS[L]} (citywide ${city.toFixed(1)}). Per 1,000: violent ${per(0)}, property ${per(1)}, other ${per(2)}. ${sevNote(w)}, the weighted rate is ${wmine.toFixed(1)}, ${ordinal(Math.max(1, Math.round(pct)))} percentile of Chicago's 77 community areas, lower is better.${trend}${note}` };
 }
 const fmtN = n => Math.round(n).toLocaleString('en-US');
 
@@ -564,7 +592,7 @@ METRICS.push({ id: 'demo', name: 'Community profile', info: true,
 METRICS.push({ id: 'vote', name: '2024 presidential vote', info: true,
   help: 'How the address\'s precinct and ward voted for president on November 5, 2024, as a share of ballots cast, next to the citywide result. Not rated.',
   run: (o) => voteCard(o) });
-const GROUPS = { crime: { weight: 3, name: 'Crime', help: 'Three views of reported crime per resident: your block group, the block groups that border it, and your community area. Each is rated on its own, and the badge combines them, giving your block group half the say and each of the other two a quarter. Crime counts as one measure in the overall score.' } };
+const GROUPS = { crime: { weight: 3, name: 'Crime', help: 'Three views of reported crime per resident: your block group, the block groups that border it, and your community area. Within each view, incidents are weighted by severity before ranking (violent 3, property 1, other 0.5 by default; change them in Limits). Each view is rated on its own, and the badge combines them, giving your block group half the say and each of the other two a quarter. Crime counts as one measure in the overall score.' } };
 
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fairFactor = () => Math.max(1, +$('tFair').value || 1.5);

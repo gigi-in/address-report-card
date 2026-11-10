@@ -39,6 +39,7 @@
   .ring.great { border-color:var(--great); } .ring.pass { border-color:var(--pass); } .ring.fair { border-color:#e0a100; } .ring.fail { border-color:var(--fail); }
   .bscore small { display:block; color:var(--muted); font-size:.78rem; } .bscore b { font-size:1.35rem; }
   .bscore b.great { color:var(--great); } .bscore b.pass { color:var(--pass); } .bscore b.fair { color:var(--fair); } .bscore b.fail { color:var(--fail); }
+  .notscored { font-size:.72rem; color:var(--muted); border:1px dashed var(--line); border-radius:999px; padding:1px 8px; white-space:nowrap; }
   .bpills { display:flex; gap:6px; flex-wrap:wrap; } .bpills .badge { padding:3px 10px; border-radius:999px; min-width:0; }
   .addr { color:var(--muted); font-size:.85rem; flex:1 1 260px; margin:0; }
   .acts { display:flex; gap:6px; flex-wrap:wrap; }
@@ -289,7 +290,7 @@
       <h3>What do Great, Good, Fair and Bad mean?</h3>
       <p>Good means within the limit set for that measure. Great means well inside it: within half the limit by default. Fair means over the limit but within the Fair multiplier (1.5 times by default). Bad means beyond that. The card shows the cutoffs for each level. Change any limit, or the Great and Fair multipliers, under Limits.</p>
       <h3>How is the overall rating decided?</h3>
-      <p>The overall rating is a weighted average, so one weak measure does not sink an otherwise strong address. Each rated measure scores 100 for Great, 75 for Good, 50 for Fair and 0 for Bad, and the scores are averaged using each measure's weight. By default the walk to a train station counts 3, crime counts 3 (as one measure: its three views are combined first, half from your block group and a quarter each from the surrounding block groups and the community area), the library counts 2, and every other measure counts 1. A Bad on a minor measure barely moves the result, while a Bad on crime or transit pulls it down a lot. The average then becomes a rating: 88 or more is Great, 65 or more is Good, 45 or more is Fair, and anything lower is Bad. The score out of 100 is shown next to it, along with the count of Great, Good, Fair and Bad measures. A measure that couldn't be checked, or that is information only, is left out. Change the weights under Limits.</p>
+      <p>The overall rating is a weighted average, so one weak measure does not sink an otherwise strong address. Each rated measure scores 100 for Great, 75 for Good, 50 for Fair and 0 for Bad, and the scores are averaged using each measure's weight. By default the walk to a train station counts 3, crime counts 3 (as one measure: its views are combined first, two thirds from your block group and one third from the surrounding block groups; the community area is shown but not counted), the library counts 2, and every other measure counts 1. A Bad on a minor measure barely moves the result, while a Bad on crime or transit pulls it down a lot. The average then becomes a rating: 85 or more is Great, 70 or more is Good, 55 or more is Fair, and anything lower is Bad. The score out of 100 is shown next to it, along with the count of Great, Good, Fair and Bad measures. A measure that couldn't be checked, or that is information only, is left out. Change the weights under Limits.</p>
       <h3>How is "downtown by train" estimated?</h3>
       <p>It adds the walk to the nearest station to a ride estimate from that station to Clark/Lake in the Loop. The ride is a distance-based estimate (distance x1.2, at about 30 km/h for the L and 45 km/h for Metra), not a schedule. It leaves out waiting and transfers, so tools like Google Maps will usually show a longer time.</p>
       <h3>What counts as an indoor rec space?</h3>
@@ -301,7 +302,7 @@
       <h3>How does severity weighting work?</h3>
       <p>In the three address crime views, incidents are not all equal. Each violent incident counts 3 times, each property incident once and each other incident half (changeable in Limits, then press Check again). The weighted count is divided by residents, and that weighted rate is what gets ranked into a percentile, so an area with mostly violent incidents rates worse than one with the same total made up mostly of thefts. The text on each card still shows the plain incidents per 1,000 residents and the violent, property and other counts. The weighting uses the latest full year only, because earlier years have no violent/property split by block group, so the trend line uses plain counts. The Community explorer map shows plain, unweighted rates.</p>
       <h3>What is crime per resident?</h3>
-      <p>The third crime measure looks up which of Chicago's 77 community areas the address is in and divides that area's reported incidents in the latest full year by its population (2024 estimate). The rate per 1,000 residents is ranked against all 77 community areas, with the same percentile ratings as the other two crime views. Community areas are large and can contain both safer and rougher blocks, so read it together with the half-mile views. Areas with few residents but many visitors, such as the Loop, show a high rate per resident.</p>
+      <p>The third crime measure looks up which of Chicago's 77 community areas the address is in and divides that area's reported incidents in the latest full year by its population (2024 estimate). The rate per 1,000 residents is ranked against all 77 community areas, with the same percentile ratings as the other two crime views. Community areas are large and can contain both safer and rougher blocks, so read it as context. It is shown on the card but is not counted in the crime rating or the overall score, because the surrounding block groups already cover the wider area. Areas with few residents but many visitors, such as the Loop, show a high rate per resident.</p>
       <h3>How is the crime trend calculated?</h3>
       <p>The trend compares the total number of incidents in the address's block group in the latest full year with the first year in the data, next to the same change for the whole city. If the area changed less than the city, it improved relative to the city even when the raw number went up. With fewer than 20 incidents in either year the page says the numbers are too small to judge, because small counts swing a lot from year to year. Partial years are not used.</p>
       <h3>What are the limitations?</h3>
@@ -582,8 +583,8 @@ const METRICS = [
   { id: 'crimenb', group: 'crime', sub: 'Surrounding block groups', name: 'Crime in surrounding block groups (per 1,000 residents)', limit: 50, unit: 'percentile', share: 1,
     help: 'The same measure for the block groups that touch yours, added together, so you can see whether the neighboring areas are safe too. Ranked against the same combined neighbors around every other Chicago block group, counting each resident once. Block groups with no residents (parks, industrial land) are not included.',
     run: (o, lim) => crimeNbCheck(o, lim) },
-  { id: 'crimeca', group: 'crime', sub: 'Community area, per resident', name: 'Crime in your community area (per 1,000 residents)', limit: 50, unit: 'percentile', share: 1,
-    help: 'Reported incidents in the address\'s community area in the latest full year divided by its population (2024 estimate), ranked against all 77 community areas. It covers a much larger area than the block group, so it shows the wider setting.',
+  { id: 'crimeca', group: 'crime', sub: 'Community area, per resident', name: 'Crime in your community area (per 1,000 residents)', limit: 50, unit: 'percentile', share: 0,
+    help: 'Shown for context only; it is not counted in the crime rating or the overall score, because the surrounding block groups already cover the wider area. Reported incidents in the address\'s community area in the latest full year divided by its population (2024 estimate), ranked against all 77 community areas. It covers a much larger area than the block group, so it shows the wider setting.',
     run: (o, lim) => crimeCommunityCheck(o, lim) }
 ];
 METRICS.push({ id: 'demo', name: 'Community profile', info: true,
@@ -592,7 +593,7 @@ METRICS.push({ id: 'demo', name: 'Community profile', info: true,
 METRICS.push({ id: 'vote', name: '2024 presidential vote', info: true,
   help: 'How the address\'s precinct and ward voted for president on November 5, 2024, as a share of ballots cast, next to the citywide result. Not rated.',
   run: (o) => voteCard(o) });
-const GROUPS = { crime: { weight: 3, name: 'Crime', help: 'Three views of reported crime per resident: your block group, the block groups that border it, and your community area. Within each view, incidents are weighted by severity before ranking (violent 3, property 1, other 0.5 by default; change them in Limits). Each view is rated on its own, and the badge combines them, giving your block group half the say and each of the other two a quarter. Crime counts as one measure in the overall score.' } };
+const GROUPS = { crime: { weight: 3, name: 'Crime', help: 'Three views of reported crime per resident: your block group, the block groups that border it, and your community area. Within each view, incidents are weighted by severity before ranking (violent 3, property 1, other 0.5 by default; change them in Limits). Each view is rated on its own, and the badge combines them, giving your block group two thirds of the say and the surrounding block groups one third. The community area is shown for context but is not counted, because the surrounding block groups already cover the wider area. Crime counts as one measure in the overall score.' } };
 
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fairFactor = () => Math.max(1, +$('tFair').value || 1.5);
@@ -604,7 +605,7 @@ $('limitFields').innerHTML = '<span></span><span class="hd">Good limit</span><sp
   `<span>${esc(m.name)}</span><label><input type="number" min="1" id="lim_${m.id}" value="${m.limit}"> ${esc(m.unit)}</label>${m.group ? (GROUP_FIRST(m) ? `<input type="number" min="0" step="0.5" id="w_${m.group}" value="${GROUPS[m.group].weight}" title="One weight for all three crime measures together">` : '<span class="limit">(crime weight above)</span>') : `<input type="number" min="0" step="0.5" id="w_${m.id}" value="${m.weight}">`}`).join('');
 
 const POINTS = { great: 100, good: 75, fair: 50, bad: 0 };
-const OVERALL_CUTS = [['great', 88], ['good', 65], ['fair', 45]];   // score needed for each overall rating; below the last is Bad
+const OVERALL_CUTS = [['great', 85], ['good', 70], ['fair', 55]];   // score needed for each overall rating; below the last is Bad
 const getWeight = m => {
   if (m.info) return 0;
   const el = $('w_' + (m.group || m.id)), n = el && el.value !== '' ? +el.value : NaN;
@@ -619,7 +620,8 @@ function scoreEntries(rows) {
     if (seen.has(r.m.group)) return;
     seen.add(r.m.group);
     const mem = rows.filter(x => x.m.group === r.m.group && !x.res.error && !x.res.info);
-    const sh = mem.reduce((a, x) => a + x.m.share, 0), pts = mem.reduce((a, x) => a + x.m.share * POINTS[x.res.rating], 0) / sh;
+    const sw = x => x.m.share, any = mem.some(x => sw(x) > 0), shr = x => any ? sw(x) : 1;
+    const sh = mem.reduce((a, x) => a + shr(x), 0), pts = mem.reduce((a, x) => a + shr(x) * POINTS[x.res.rating], 0) / sh;
     out.push({ w: getWeight(r.m), pts, rating: levelOf(pts), name: GROUPS[r.m.group].name });
   });
   return out;
@@ -632,7 +634,7 @@ function overallRating(rows) {
   if (!wts.some(w => w > 0)) wts = wts.map(() => 1);          // every weight set to 0: fall back to equal weights
   const total = wts.reduce((a, b) => a + b, 0);
   const score = ent.reduce((sm, e, k) => sm + wts[k] * e.pts, 0) / total;
-  return { level: levelOf(score), score: Math.round(score) };
+  return { level: levelOf(Math.round(score)), score: Math.round(score) };
 }
 
 function render(label, rows, hood, origin) {
@@ -667,7 +669,7 @@ function render(label, rows, hood, origin) {
         <h3>${esc(g.name)}</h3><span class="tip" tabindex="0" aria-label="${esc(g.help)}" data-tip="${esc(g.help)}">?</span></div>
       <div class="subs">${members.map(({ m: mm, lim: ll, res: rr }) => {
         const b = !!rr.error || !!rr.info;
-        return `<div class="subitem"><div class="subhead"><span class="badge small ${b ? 'info' : cls[rr.rating]}">${b ? 'INFO' : word[rr.rating]}</span><h4>${esc(mm.sub)}</h4><span class="tip" tabindex="0" aria-label="${esc(helpOf(mm, ll))}" data-tip="${esc(helpOf(mm, ll))}">?</span></div>
+        return `<div class="subitem"><div class="subhead"><span class="badge small ${b ? 'info' : cls[rr.rating]}">${b ? 'INFO' : word[rr.rating]}</span><h4>${esc(mm.sub)}</h4>${mm.share === 0 ? '<span class="notscored">not scored</span>' : ''}<span class="tip" tabindex="0" aria-label="${esc(helpOf(mm, ll))}" data-tip="${esc(helpOf(mm, ll))}">?</span></div>
           <p class="detail">${esc(rr.text)}</p>${barsHtml(rr)}</div>`;
       }).join('')}</div>
     </div>`);

@@ -279,7 +279,7 @@
       <h3>Where does the data come from?</h3>
       <p>CTA L stops, Metra stations, Chicago Public Library branches, Chicago Park District parks (and their indoor facilities) and a list of grocery stores are built into this page. The address lookup (OpenStreetMap's Nominatim) and walking routes (OpenStreetMap's Valhalla) need an internet connection.</p>
       <h3>What does the map show?</h3>
-      <p>The address pin, the walking route (or a dashed straight line if the route service is unavailable) to the nearest train station, library, park, grocery store and indoor rec space, and the other places of each kind nearby. Tap a marker for its name. Use the checkboxes under the map to turn layers on and off. The Crime by block group layer shades the census block groups within about a mile (your address's block group has a dark outline). Each is colored by its reported incidents per 1,000 residents in the latest full year, from the lightest yellow (lowest quarter of Chicago residents) to dark red (top 10%). Tap one for its residents and incidents. The home button (house icon) returns to your address. Drag to move the map, and use the + and - buttons, the mouse wheel, or two fingers to zoom.</p>
+      <p>The address pin, the walking route (or a dashed straight line if the route service is unavailable) to the nearest train station, library, park, grocery store and indoor rec space, and the other libraries, parks, grocery stores and rec spaces nearby (for trains, only the nearest station is shown). Tap a marker for its name. Use the checkboxes under the map to turn layers on and off. The Crime by block group layer shades the census block groups within about a mile (your address's block group has a dark outline). Each is colored by its reported incidents per 1,000 residents in the latest full year, from the lightest yellow (lowest quarter of Chicago residents) to dark red (top 10%). Tap one for its residents and incidents. The home button (house icon) returns to your address. Drag to move the map, and use the + and - buttons, the mouse wheel, or two fingers to zoom.</p>
       <h3>How are the neighborhood and community area found?</h3>
       <p>The address is matched to the City of Chicago's neighborhood boundaries, which are simplified in this page, so an address within about a block of a boundary can show the neighboring area. If an address is just outside every boundary, the page shows the nearest neighborhood and says "near".</p>
       <h3>What is the Community explorer tab?</h3>
@@ -644,15 +644,10 @@ const levelOf = score => { const hit = OVERALL_CUTS.find(([, min]) => score >= m
 // One plain sentence on what is pulling a Fair or Bad overall rating down.
 function whyLine(rows, score, level) {
   if (score == null || (level !== 'fair' && level !== 'bad')) return '';
-  const ent = scoreEntries(rows);
-  let wts = ent.map(e => e.w); if (!wts.some(w => w > 0)) wts = wts.map(() => 1);
-  const total = wts.reduce((a, b) => a + b, 0), lw = { great: 'Great', good: 'Good', fair: 'Fair', bad: 'Bad' };
-  const costs = ent.map((e, k) => ({ name: e.name, rating: e.rating, lost: wts[k] * (100 - e.pts) / total })).filter(x => x.lost >= 1).sort((a, b) => b.lost - a.lost).slice(0, 3);
-  if (!costs.length) return '';
-  const parts = costs.map(x => `${x.name} is ${lw[x.rating]} (costs ${Math.round(x.lost)} ${Math.round(x.lost) === 1 ? 'point' : 'points'})`);
-  const list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
-  const next = OVERALL_CUTS.slice().reverse().find(c => c[1] > score);
-  return `Why ${lw[level]}: ${list}.${next ? ` ${lw[next[0]]} starts at ${next[1]}; this is ${score}.` : ''}`;
+  const ent = scoreEntries(rows), lw = { fair: 'Fair', bad: 'Bad' };
+  const join = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0];
+  const parts = ['bad', 'fair'].map(k => { const n = ent.filter(e => e.rating === k && e.w > 0).sort((a, b) => b.w - a.w).map(e => e.name); return n.length ? `${join(n)} ${n.length > 1 ? 'are' : 'is'} ${lw[k]}` : ''; }).filter(Boolean);
+  return parts.length ? `Why ${lw[level]}: ${parts.join('; ')}.` : '';
 }
 
 function overallRating(rows) {
@@ -773,7 +768,7 @@ function decodePoly(str, prec) {
 const MapView = (() => {
   const T = 256, KIND = {
     transit: { color: '#2457d6', label: 'Train station' }, library: { color: '#8e44ad', label: 'Library' },
-    park: { color: '#1e9e5a', label: 'Park' }, grocery: { color: '#e67e22', label: 'Grocery' }, rec: { color: '#d6336c', label: 'Rec space' }
+    park: { color: '#1e9e5a', label: 'Park' }, grocery: { color: '#0f8b8d', label: 'Grocery' }, rec: { color: '#1f2937', label: 'Rec space' }
   };
   const LAYERS = { transit: true, library: true, park: true, grocery: true, rec: true, crime: true, hoods: true, tiles: true };
   const st = { lat: 41.835, lon: -87.68, z: 10, home: null, blocks: [], crimeCat: 'all', origin: null, hood: null, items: [], routes: [], ctx: {}, parkRings: [], info: '' };
@@ -852,18 +847,20 @@ const MapView = (() => {
     });
     Object.keys(KIND).forEach(k => {
       if (!LAYERS[k]) return;
-      (st.ctx[k] || []).forEach(c => { const p = P(c.lat, c.lon); if (vis(p[0], p[1], 10)) s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.5" fill="${KIND[k].color}" fill-opacity=".55" stroke="#fff" stroke-width="1" data-tip="${esc(c.name)} (${KIND[k].label.toLowerCase()})"/>`; });
+      (st.ctx[k] || []).forEach(c => { const p = P(c.lat, c.lon); if (vis(p[0], p[1], 10)) s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5" fill="${KIND[k].color}" fill-opacity=".95" stroke="#fff" stroke-width="1.8" data-tip="${esc(c.name)} (${KIND[k].label.toLowerCase()})"/>`; });
     });
     st.routes.forEach(r => {
       if (!LAYERS[r.kind]) return;
       const d = r.line.map((q, i) => { const p = P(q[0], q[1]); return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join('');
-      s += `<path d="${d}" fill="none" stroke="${KIND[r.kind].color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" ${r.est ? 'stroke-dasharray="7 6"' : ''} stroke-opacity=".9"/>`;
+      s += `<path d="${d}" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".95"/>`;
+      s += `<path d="${d}" fill="none" stroke="${KIND[r.kind].color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" ${r.est ? 'stroke-dasharray="7 6"' : ''} stroke-opacity=".9"/>`;
     });
     st.items.forEach(it => {
       if (!LAYERS[it.kind]) return;
       const p = P(it.pt.lat, it.pt.lon), tip = `${it.name}: ${Math.round(it.min)} min walk${it.est ? ' (estimated)' : ''}`;
-      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="${KIND[it.kind].color}" stroke="#fff" stroke-width="2.5" data-tip="${esc(tip)}"/>`;
-      s += `<text x="${(p[0] + 12).toFixed(1)}" y="${(p[1] + 4).toFixed(1)}" font-size="12" font-weight="600" fill="#1c2230">${esc(it.name.length > 26 ? it.name.slice(0, 25) + '…' : it.name)} · ${Math.round(it.min)} min</text>`;
+      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="#fff" fill-opacity=".95" stroke="#1c2230" stroke-opacity=".55" stroke-width="1" pointer-events="none"/>`;
+      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="8" fill="${KIND[it.kind].color}" stroke="#fff" stroke-width="2" data-tip="${esc(tip)}"/>`;
+      if (document.documentElement.classList.contains('printing')) s += `<text x="${(p[0] + 12).toFixed(1)}" y="${(p[1] + 4).toFixed(1)}" font-size="12" font-weight="600" fill="#1c2230">${esc(it.name.length > 26 ? it.name.slice(0, 25) + '…' : it.name)} · ${Math.round(it.min)} min</text>`;
     });
     if (LAYERS.hoods && z >= 12) HOODS.forEach(hd => { const p = P(hd.lat, hd.lon); if (vis(p[0], p[1], -10)) s += `<text x="${p[0].toFixed(1)}" y="${p[1].toFixed(1)}" text-anchor="middle" font-size="${hd === cur ? 13 : 11}" font-weight="${hd === cur ? 700 : 500}" fill="${hd === cur ? '#173fa6' : '#475467'}" opacity="${hd === cur ? 1 : .8}">${esc(hd.name)}</text>`; });
     if (st.origin) {
@@ -934,7 +931,7 @@ const MapView = (() => {
           if (pk.pts.some(p => haversine(origin, p) <= rad)) st.parkRings.push({ name: pk.tags.name, rings: pk.rings, best: pk === b.el });
         });
       } else {
-        st.ctx[k] = DATA[k].filter(e => e !== b.el && haversine(origin, e.pts[0]) <= rad).map(e => ({ name: e.tags.name, lat: e.pts[0].lat, lon: e.pts[0].lon }));
+        st.ctx[k] = k === 'transit' ? [] : DATA[k].filter(e => e !== b.el && haversine(origin, e.pts[0]) <= rad).map(e => ({ name: e.tags.name, lat: e.pts[0].lat, lon: e.pts[0].lon }));
       }
     });
     st.fitPts = pts; fit(pts); st.home = { lat: st.lat, lon: st.lon, z: st.z }; draw();
@@ -943,7 +940,7 @@ const MapView = (() => {
 
   function init() {
     const lg = $('legend');
-    const names = { transit: 'Train', library: 'Library', park: 'Park', grocery: 'Grocery', rec: 'Rec', crime: 'Crime by block group', hoods: 'Neighborhoods', tiles: 'Street map' };
+    const names = { transit: 'Train Station', library: 'Library', park: 'Park', grocery: 'Grocery Store', rec: 'Recreation', crime: 'Crime by block group', hoods: 'Neighborhoods', tiles: 'Street map' };
     lg.innerHTML = Object.keys(names).map(k => `<label><input type="checkbox" data-layer="${k}"${LAYERS[k] ? ' checked' : ''}>${KIND[k] ? `<span class="sw" style="background:${KIND[k].color}"></span>` : ''}${names[k]}</label>`).join('');
     lg.insertAdjacentHTML('beforeend', '<label>Map: <select id="tileSel">' + Object.keys(TILE_SRC).map(k => `<option value="${k}">${TILE_SRC[k].name}</option>`).join('') + '</select></label>');
     $('tileSel').addEventListener('change', e => setSrc(e.target.value));
@@ -954,6 +951,8 @@ const MapView = (() => {
     $('zin').addEventListener('click', () => { const [w, h] = size(); zoomAt(1, w / 2, h / 2); });
     $('zout').addEventListener('click', () => { const [w, h] = size(); zoomAt(-1, w / 2, h / 2); });
     const m = $('map'), ptrs = new Map();
+    m.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || ptrs.size) return; const t = e.target && e.target.closest && e.target.closest('[data-tip]'); $('mapInfo').textContent = t ? t.getAttribute('data-tip') : st.info; });
+    m.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') $('mapInfo').textContent = st.info; });
     let last = null, moved = 0, pinch = 0;
     m.addEventListener('pointerdown', e => {
       if (e.target.closest('.mapctl')) return;

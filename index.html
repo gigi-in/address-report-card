@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="copyright" content="&copy; 2026 Gargi Singh. All rights reserved.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chicago Address Report Card</title>
 <style>
@@ -40,6 +41,7 @@
   .bscore small { display:block; color:var(--muted); font-size:.78rem; } .bscore b { font-size:1.35rem; }
   .bscore b.great { color:var(--great); } .bscore b.pass { color:var(--pass); } .bscore b.fair { color:var(--fair); } .bscore b.fail { color:var(--fail); }
   .notscored { font-size:.72rem; color:var(--muted); border:1px dashed var(--line); border-radius:999px; padding:1px 8px; white-space:nowrap; }
+  .why { flex:1 0 100%; font-size:.85rem; color:var(--detail, #4b5563); border-top:1px solid var(--line); padding-top:10px; }
   .bpills { display:flex; gap:6px; flex-wrap:wrap; } .bpills .badge { padding:3px 10px; border-radius:999px; min-width:0; }
   .addr { color:var(--muted); font-size:.85rem; flex:1 1 260px; margin:0; }
   .acts { display:flex; gap:6px; flex-wrap:wrap; }
@@ -236,6 +238,7 @@
     </aside>
   </div>
   <p class="credit">Data: City of Chicago Data Portal, Metra, and OpenStreetMap contributors. See the ? button for details and credits.</p>
+  <p class="credit">&copy; 2026 Gargi Singh. All rights reserved. Third-party data is used under its own terms, listed under the ? button.</p>
 
   </div>
 
@@ -284,7 +287,7 @@
       <h3>What is in the community profile?</h3>
       <p>The address check shows a profile card for the address's community area: income, rent, home value, share of renters, housing cost burden, education, age, population change, commuting and car access, with each area's rank among the 77 and a citywide comparison, plus the mix of race and ethnicity and ages. These are estimates for the whole community area, mostly from the 2020-2024 American Community Survey, so they describe the area on average and not a particular block. Small areas have wide margins of error. The profile is not rated, because what counts as good depends on what you are looking for.</p>
       <h3>Credits</h3>
-      <p>Train stops, library branches, park boundaries, neighborhood boundaries and reported-crime data come from the City of Chicago Data Portal (Chicago Transit Authority, Chicago Public Library, Chicago Park District, City of Chicago and Chicago Police Department). Metra station locations are from Metra's published data. The grocery store list was supplied by the site owner. Community area boundaries are from the City of Chicago Data Portal. Community area populations and demographic estimates (2020-2024 American Community Survey and other sources) are from the Chicago Metropolitan Agency for Planning (CMAP) Community Data Snapshots. Address search (Nominatim) and walking routes (Valhalla) are &copy; OpenStreetMap contributors, available under the Open Database License. Street map tiles are from Esri (default) or OpenStreetMap. Election results (November 5, 2024) are from the Chicago Board of Election Commissioners, matched to the City's ward-precinct boundaries.</p>
+      <p>Train stops, library branches, park boundaries, neighborhood boundaries and reported-crime data come from the City of Chicago Data Portal (Chicago Transit Authority, Chicago Public Library, Chicago Park District, City of Chicago and Chicago Police Department). Metra station locations are from Metra's published data. The grocery store list was supplied by the site owner. Community area boundaries are from the City of Chicago Data Portal. Community area populations and demographic estimates (2020-2024 American Community Survey and other sources) are from the Chicago Metropolitan Agency for Planning (CMAP) Community Data Snapshots. Address search (Nominatim) and walking routes (Valhalla) are &copy; OpenStreetMap contributors, available under the Open Database License. Street map tiles are from OpenStreetMap (default) or Esri (selectable under the map). Election results (November 5, 2024) are from the Chicago Board of Election Commissioners, matched to the City's ward-precinct boundaries.</p>
       <h3>How are walking times measured?</h3>
       <p>The page finds the three closest places of each kind in a straight line, asks for a real walking route to each, and uses the shortest. If the route service can't be reached, it estimates from straight-line distance (x1.3 for streets, at 4.8 km/h) and marks the result "(estimated)". For parks, the walk is to the nearest point on the park's boundary.</p>
       <h3>What do Great, Good, Fair and Bad mean?</h3>
@@ -305,6 +308,17 @@
       <p>The third crime measure looks up which of Chicago's 77 community areas the address is in and divides that area's reported incidents in the latest full year by its population (2024 estimate). The rate per 1,000 residents is ranked against all 77 community areas, with the same percentile ratings as the other two crime views. Community areas are large and can contain both safer and rougher blocks, so read it as context. It is shown on the card but is not counted in the crime rating or the overall score, because the surrounding block groups already cover the wider area. Areas with few residents but many visitors, such as the Loop, show a high rate per resident.</p>
       <h3>How is the crime trend calculated?</h3>
       <p>The trend compares the total number of incidents in the address's block group in the latest full year with the first year in the data, next to the same change for the whole city. If the area changed less than the city, it improved relative to the city even when the raw number went up. With fewer than 20 incidents in either year the page says the numbers are too small to judge, because small counts swing a lot from year to year. Partial years are not used.</p>
+      <h3>Credits, terms and ownership</h3>
+      <p>&copy; 2026 Gargi Singh. All rights reserved. The code, page design, scoring method and written text of this tool are protected by copyright and may not be copied, republished or reused without written permission. Third-party data is not covered by this claim and stays under its owners' terms:</p>
+      <ul>
+        <li>City of Chicago Data Portal: transit stops, libraries, parks, neighborhood and community area boundaries, and reported crime (Chicago Police Department).</li>
+        <li>U.S. Census Bureau: 2020 Census resident counts and block boundaries, used to build the block group rates.</li>
+        <li>Chicago Metropolitan Agency for Planning (CMAP): Community Data Snapshots (2020-2024 American Community Survey and other sources).</li>
+        <li>Chicago Board of Election Commissioners: November 5, 2024 election results.</li>
+        <li>Metra: station locations. Grocery store list: supplied by the site owner.</li>
+        <li>OpenStreetMap contributors (Open Database License): address search (Nominatim), walking routes (Valhalla) and the default map tiles. Esri: optional map tiles.</li>
+      </ul>
+      <p>Ratings are a personal tool for comparing addresses, not advice. Reported crime is not the same as all crime, and data can be out of date.</p>
       <h3>What are the limitations?</h3>
       <p>The lists are snapshots and can go out of date. The grocery list may be incomplete. Park distances are approximate because park outlines are simplified to points about 15 meters apart. The nearest station on foot isn't always the fastest way downtown.</p>
     </div>
@@ -627,6 +641,20 @@ function scoreEntries(rows) {
   return out;
 }
 const levelOf = score => { const hit = OVERALL_CUTS.find(([, min]) => score >= min); return hit ? hit[0] : 'bad'; };
+// One plain sentence on what is pulling a Fair or Bad overall rating down.
+function whyLine(rows, score, level) {
+  if (score == null || (level !== 'fair' && level !== 'bad')) return '';
+  const ent = scoreEntries(rows);
+  let wts = ent.map(e => e.w); if (!wts.some(w => w > 0)) wts = wts.map(() => 1);
+  const total = wts.reduce((a, b) => a + b, 0), lw = { great: 'Great', good: 'Good', fair: 'Fair', bad: 'Bad' };
+  const costs = ent.map((e, k) => ({ name: e.name, rating: e.rating, lost: wts[k] * (100 - e.pts) / total })).filter(x => x.lost >= 1).sort((a, b) => b.lost - a.lost).slice(0, 3);
+  if (!costs.length) return '';
+  const parts = costs.map(x => `${x.name} is ${lw[x.rating]} (costs ${Math.round(x.lost)} ${Math.round(x.lost) === 1 ? 'point' : 'points'})`);
+  const list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+  const next = OVERALL_CUTS.slice().reverse().find(c => c[1] > score);
+  return `Why ${lw[level]}: ${list}.${next ? ` ${lw[next[0]]} starts at ${next[1]}; this is ${score}.` : ''}`;
+}
+
 function overallRating(rows) {
   const ent = scoreEntries(rows);
   if (!ent.length) return { level: 'fair', score: null };
@@ -648,7 +676,8 @@ function render(label, rows, hood, origin) {
     `<div class="banner"><div class="bscore"><div class="ring ${cls[overall]}">${score == null ? '' : score}</div><div><small>Overall</small><b class="${cls[overall]}">${word[overall]}</b></div></div>` +
     `<div class="bpills"><span class="badge great">${count('great')} Great</span><span class="badge pass">${count('good')} Good</span><span class="badge fair">${count('fair')} Fair</span><span class="badge fail">${count('bad')} Bad</span></div>` +
     `<div class="addr">${origin && origin.ca ? `Community area: <b>${esc(origin.ca)}</b>` : esc(label)}${hood && !hood.near && hood.hood.name !== (origin && origin.ca) ? ` | Neighborhood: <span class="hood">${esc(hood.hood.name)}</span>` : ''}${origin ? ` | <a href="https://www.google.com/maps/search/?api=1&query=${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}" target="_blank" rel="noopener" title="Open this location in Google Maps">${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (Google Maps)</a>` : ''}${skipped ? ` | ${skipped} measure${skipped > 1 ? 's' : ''} could not be checked and ${skipped > 1 ? 'are' : 'is'} left out of the overall` : ''}</div>` +
-    `<div class="acts"><button class="ghost small" id="cmpAdd" type="button">+ Add to compare</button> <button class="ghost small" id="shareBtn" type="button" title="Copy a link to this address">Copy link</button> <button class="ghost small" id="printBtn" type="button" title="Print or save as PDF">Print / PDF</button></div></div>`;
+    `<div class="acts"><button class="ghost small" id="cmpAdd" type="button">+ Add to compare</button> <button class="ghost small" id="shareBtn" type="button" title="Copy a link to this address">Copy link</button> <button class="ghost small" id="printBtn" type="button" title="Print or save as PDF">Print / PDF</button></div>` +
+    (whyLine(rows, score, overall) ? `<div class="why">${esc(whyLine(rows, score, overall))}</div>` : '') + `</div>`;
   $('printHdr').textContent = `Chicago Address Report Card \u00b7 ${label} \u00b7 ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
   LAST = snapshot(label, rows, hood, origin, overall, score);
   cmpRefresh();
@@ -749,10 +778,11 @@ const MapView = (() => {
   const LAYERS = { transit: true, library: true, park: true, grocery: true, rec: true, crime: true, hoods: true, tiles: true };
   const st = { lat: 41.835, lon: -87.68, z: 10, home: null, blocks: [], crimeCat: 'all', origin: null, hood: null, items: [], routes: [], ctx: {}, parkRings: [], info: '' };
   const TILE_SRC = {
-    esri: { name: 'Esri street map', url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`, attr: 'Tiles &copy; Esri' },
-    osm: { name: 'OpenStreetMap (works when hosted)', url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, attr: '&copy; OpenStreetMap contributors' }
+    osm: { name: 'OpenStreetMap', url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, attr: '&copy; OpenStreetMap contributors' },
+    esri: { name: 'Esri street map', url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`, attr: 'Tiles &copy; Esri' }
   };
-  st.src = 'esri';
+
+  st.src = 'osm';
   const tileImgs = new Map();
   const proj = (lat, lon, z) => {
     const s = Math.sin(lat * Math.PI / 180), n = T * Math.pow(2, z);

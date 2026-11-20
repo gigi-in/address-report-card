@@ -299,7 +299,7 @@
       <h3>What counts as an indoor rec space?</h3>
       <p>Chicago Park District parks that have indoor recreation: a community center, gymnasium, gymnastics room, indoor pool, fitness center, boxing gym, climbing wall or indoor handball court. Private venues, such as climbing gyms and pickleball facilities, can be added to the list but are not included yet. Walks are measured to the nearest point on the park boundary, not to the building door.</p>
       <h3>How is crime measured?</h3>
-      <p>Reported incidents in three groups (violent, property and other) in the latest full calendar year are totaled for the census block group the address is in (a block group has roughly 600 to 3,000 residents) and divided by its 2020 Census population. That gives incidents per 1,000 residents, ranked against every other Chicago block group, counting each resident once. A lower percentile is better. The rating uses the percentile (Great at 25 or below, Good at 50 or below, Fair at 75 or below, with the default settings). Violent covers homicide, sexual assault, robbery, battery, assault and kidnapping. Property covers theft, burglary, vehicle theft, criminal damage and arson. Other covers weapons violations, trespass, stalking, intimidation and similar. Drug, vice and fraud reports are left out because they reflect enforcement or are not tied to where a person lives. Only the address's own block group is used, with no neighbors added, so a block group that holds a busy shopping street or a park can show a high rate per resident and a small block group can swing from year to year. Population is from the 2020 Census, so places that have changed since then can be off. Incident locations are rounded to the block for privacy, and reports reflect what is reported as well as what happens. It describes an area, not your personal risk.</p>
+      <p>Reported incidents in three groups (violent, property and other) in the latest full calendar year are totaled for the census block group the address is in (a block group has roughly 600 to 3,000 residents) and divided by its 2020 Census population. That gives incidents per 1,000 residents, ranked against every other Chicago block group, counting each resident once. A lower percentile is better. The rating uses the percentile (Great at 15 or below, Good at 30 or below, Fair at 50 or below, Bad above 50, with the default settings). Violent covers homicide, sexual assault, robbery, battery, assault and kidnapping. Property covers theft, burglary, vehicle theft, criminal damage and arson. Other covers weapons violations, trespass, stalking, intimidation and similar. Drug, vice and fraud reports are left out because they reflect enforcement or are not tied to where a person lives. Only the address's own block group is used, with no neighbors added, so a block group that holds a busy shopping street or a park can show a high rate per resident and a small block group can swing from year to year. Population is from the 2020 Census, so places that have changed since then can be off. Incident locations are rounded to the block for privacy, and reports reflect what is reported as well as what happens. It describes an area, not your personal risk.</p>
       <h3>What about the surrounding block groups?</h3>
       <p>The second view in the Crime card adds up the block groups that share an edge with yours (usually four to seven) and works out incidents per 1,000 residents across all of them, then ranks that against the same combined neighbors around every other Chicago block group. Neighbors with no residents, such as parks, are left out, and neighbors outside Chicago are not in the data.</p>
       <h3>How does severity weighting work?</h3>
@@ -633,13 +633,13 @@ const METRICS = [
   { id: 'rec', name: 'Indoor rec space', limit: 20, unit: 'min walk', weight: 1,
     help: 'Walking time to the nearest Park District building with indoor recreation (community center, gym, indoor pool, fitness center, climbing wall, boxing, and similar). Private venues such as pickleball facilities are not included yet.',
     run: (o, lim) => evaluate(o, DATA.rec, lim, 'rec') },
-  { id: 'crime', group: 'crime', sub: 'Your block group', name: 'Crime in your block group (per 1,000 residents)', limit: 50, unit: 'percentile', share: 2,
+  { id: 'crime', group: 'crime', sub: 'Your block group', name: 'Crime in your block group (per 1,000 residents)', limit: 30, unit: 'percentile', gf: 0.5, ff: 50/30, share: 2,
     help: 'Reported incidents in the address\'s census block group (about 600 to 3,000 residents) in the latest full year, divided by its 2020 Census population and ranked against every Chicago block group, counting each resident once. The change since the first year is shown too. A lower percentile is better.',
     run: (o, lim) => crimeCheck(o, lim) },
-  { id: 'crimenb', group: 'crime', sub: 'Surrounding block groups', name: 'Crime in surrounding block groups (per 1,000 residents)', limit: 50, unit: 'percentile', share: 1,
+  { id: 'crimenb', group: 'crime', sub: 'Surrounding block groups', name: 'Crime in surrounding block groups (per 1,000 residents)', limit: 30, unit: 'percentile', gf: 0.5, ff: 50/30, share: 1,
     help: 'The same measure for the block groups that touch yours, added together, so you can see whether the neighboring areas are safe too. Ranked against the same combined neighbors around every other Chicago block group, counting each resident once. Block groups with no residents (parks, industrial land) are not included.',
     run: (o, lim) => crimeNbCheck(o, lim) },
-  { id: 'crimeca', group: 'crime', sub: 'Community area, per resident', name: 'Crime in your community area (per 1,000 residents)', limit: 50, unit: 'percentile', share: 0,
+  { id: 'crimeca', group: 'crime', sub: 'Community area, per resident', name: 'Crime in your community area (per 1,000 residents)', limit: 30, unit: 'percentile', gf: 0.5, ff: 50/30, share: 0,
     help: 'Shown for context only; it is not counted in the crime rating or the overall score, because the surrounding block groups already cover the wider area. Reported incidents in the address\'s community area in the latest full year divided by its population (2024 estimate), ranked against all 77 community areas. It covers a much larger area than the block group, so it shows the wider setting.',
     run: (o, lim) => crimeCommunityCheck(o, lim) }
 ];
@@ -830,9 +830,9 @@ const MapView = (() => {
     return [Math.atan(Math.sinh(m)) * 180 / Math.PI, lon];
   };
   const size = () => { const r = $('map').getBoundingClientRect(); return [Math.max(1, r.width), Math.max(1, r.height)]; };
-  const CRIME_BANDS = ['lowest 25%', 'below the median', 'above the median', 'top 25%', 'top 10%'];
-  // band 0-4 from a block area's percentile (25 / 50 / 75 / 90)
-  const crimeBand = pct => pct <= 25 ? 0 : pct <= 50 ? 1 : pct <= 75 ? 2 : pct <= 90 ? 3 : 4;
+  const CRIME_BANDS = ['lowest 15%', '15th-30th percentile', '30th-50th percentile', '50th-75th percentile', 'top 25%'];
+  // band 0-4 from a block area's percentile (15 / 30 / 50 / 75), matching the crime rating cutoffs
+  const crimeBand = pct => pct <= 15 ? 0 : pct <= 30 ? 1 : pct <= 50 ? 2 : pct <= 75 ? 3 : 4;
   const CAT_LABEL = { all: 'reported', violent: 'violent', property: 'property' };
   const catCuts = {};
   // percentile cut points for violent / property rates, computed once from the block groups (all-crime cuts come with the data)

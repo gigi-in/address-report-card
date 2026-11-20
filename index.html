@@ -41,7 +41,7 @@
   .bscore small { display:block; color:var(--muted); font-size:.78rem; } .bscore b { font-size:1.35rem; }
   .bscore b.great { color:var(--great); } .bscore b.pass { color:var(--pass); } .bscore b.fair { color:var(--fair); } .bscore b.fail { color:var(--fail); }
   .notscored { font-size:.72rem; color:var(--muted); border:1px dashed var(--line); border-radius:999px; padding:1px 8px; white-space:nowrap; }
-  .why { flex:1 0 100%; font-size:.85rem; color:var(--detail, #4b5563); border-top:1px solid var(--line); padding-top:10px; }
+  .why { flex:1 0 100%; font-style:italic; font-size:.85rem; color:var(--detail, #4b5563); border-top:1px solid var(--line); padding-top:10px; }
   .bpills { display:flex; gap:6px; flex-wrap:wrap; } .bpills .badge { padding:3px 10px; border-radius:999px; min-width:0; }
   .addr { color:var(--muted); font-size:.85rem; flex:1 1 260px; margin:0; }
   .acts { display:flex; gap:6px; flex-wrap:wrap; }
@@ -208,7 +208,7 @@
   <div id="tabCheck">
   <div class="printhdr" id="printHdr"></div>
   <div class="search">
-    <input id="addr" type="text" placeholder="e.g. 1200 W Barry Ave, Chicago" autocomplete="off">
+    <input id="addr" type="text" placeholder="e.g. 1200 W Barry Ave, or paste a Zillow link" autocomplete="off">
     <button id="go" type="button">Check</button>
   </div>
 
@@ -337,6 +337,34 @@ function haversine(a, b) {
   const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
   const h = Math.sin(dLat/2)**2 + Math.cos(a.lat*rad) * Math.cos(b.lat*rad) * Math.sin(dLon/2)**2;
   return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Listing links (Zillow, also Redfin and Realtor.com): the address is in the URL, so read it from there.
+function listingAddress(q) {
+  let u; try { u = new URL(/^https?:\/\//i.test(q) ? q : 'https://' + q); } catch (e) { return null; }
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  if (!/(^|\.)(zillow|redfin|realtor)\.com$/.test(host)) return null;
+  const parts = u.pathname.split('/').filter(Boolean).map(x => decodeURIComponent(x));
+  let slug = null;
+  if (/zillow/.test(host)) {
+    const i = parts.findIndex(x => x === 'homedetails' || x === 'b');
+    if (i >= 0 && parts[i + 1] && !/_zpid$/.test(parts[i + 1])) slug = parts[i + 1];
+  } else if (/redfin/.test(host)) {
+    // /IL/Chicago/1200-W-Barry-Ave-60657/unit-2/home/123
+    if (parts.length >= 3 && /^[A-Z]{2}$/i.test(parts[0])) { const z = parts[2].match(/^(.*)-(\d{5})$/); slug = (z ? z[1] : parts[2]) + '-' + parts[1] + '-' + parts[0] + (z ? '-' + z[2] : ''); }
+  } else {
+    // /realestateandhomes-detail/1200-W-Barry-Ave-Apt-2_Chicago_IL_60657_M12345-67890
+    const i = parts.indexOf('realestateandhomes-detail');
+    if (i >= 0 && parts[i + 1]) slug = parts[i + 1].replace(/_M[\d-]+$/, '').replace(/_/g, '-');
+  }
+  if (!slug) return { error: 'That listing link does not include the street address. Please type the address instead.' };
+  let t = slug.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/\b(\d{5})(\s+\d{4})?\b/g, '$1');
+  // Drop the unit (APT 2, UNIT 3B, # 4, STE 100, FL 2): the address search finds buildings, not units.
+  t = t.replace(/\s+(apt|unit|ste|suite|fl|floor|#|no)\s*[a-z0-9]+(?=\s|$)/ig, '');
+  // Put a comma before the city: "1200 W Barry Ave Chicago IL 60657" -> "1200 W Barry Ave, Chicago, IL 60657"
+  t = t.replace(/\s+chicago\s+il\b/i, ', Chicago, IL');
+  return { address: t };
 }
 
 async function geocode(q) {
@@ -1478,8 +1506,13 @@ window.addEventListener('hashchange', loadFromHash);
 
 async function run(pre) {
   if (pre && pre.lat == null) pre = null;   // a click event, not a saved location
-  const q = pre ? pre.label : $('addr').value.trim();
+  let q = pre ? pre.label : $('addr').value.trim();
   if (!q) { $('status').textContent = 'Please enter an address.'; return; }
+  if (!pre) {
+    const la = listingAddress(q);
+    if (la && la.error) { $('status').textContent = la.error; return; }
+    if (la) { q = la.address; $('addr').value = q; }
+  }
   const btn = $('go'); btn.disabled = true; $('summary').innerHTML = ''; $('grid').innerHTML = '';
   try {
     $('status').textContent = 'Locating address...';
